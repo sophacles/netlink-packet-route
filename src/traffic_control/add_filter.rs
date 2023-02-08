@@ -42,6 +42,7 @@ impl TrafficFilterNewRequest {
         let mut req =
             NetlinkMessage::from(RtnlMessage::NewTrafficFilter(message));
         req.header.flags = NLM_F_ACK | flags;
+        eprintln!("{:x?}", &req);
 
         let mut response = handle.request(req)?;
         while let Some(message) = response.next().await {
@@ -113,6 +114,22 @@ impl TrafficFilterNewRequest {
         assert_eq!(self.message.header.info & TC_H_MIN_MASK, 0);
         self.message.header.info =
             TC_H_MAKE!(self.message.header.info, protocol as u32);
+        self
+    }
+
+    /// The matchall filter matches every packet and applies actions, etc
+    pub fn matchall(mut self, data: Vec<tc::matchall::Nla>) -> Self {
+        assert!(!self
+            .message
+            .nlas
+            .iter()
+            .any(|nla| matches!(nla, tc::Nla::Kind(_))));
+        self.message
+            .nlas
+            .push(tc::Nla::Kind(tc::matchall::KIND.to_string()));
+        self.message.nlas.push(tc::Nla::Options(
+                data.into_iter().map(tc::TcOpt::Matchall).collect()
+        ));
         self
     }
 
